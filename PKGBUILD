@@ -2,7 +2,7 @@
 
 # For MangoPi MQ-Pro
 pkgbase=linux-mangopi
-pkgver=6.8.mangopi1
+pkgver=6.1.mangopi1
 pkgrel=1
 pkgdesc='Linux for MangoPi MQ-Pro'
 url='https://github.com/archlinux/linux'
@@ -30,13 +30,15 @@ options=(
   !debug
   !strip
 )
-_srcname=linux-${pkgver%.*}
+_srcname=linux-mangopi
 _srctag=v${pkgver%.*}-${pkgver##*.}
 source=(
-  https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/${_srcname}.tar.xz
+  "git+https://github.com/fish4terrisa-MSDSM/linux-mangopi.git"
   "git+https://github.com/lwfinger/rtl8723ds.git"
+  "config"
 )
 sha256sums=('SKIP'
+	    'SKIP'
             'SKIP')
 
 export KBUILD_BUILD_HOST=archlinux
@@ -79,18 +81,17 @@ prepare() {
   cd $_srcname
   echo "Setting version..."
   touch .scmversion
-  sed -i 's/EXTRAVERSION =/EXTRAVERSION = -mangopi1/' Makefile
   echo "-$pkgrel" > localversion.10-pkgrel
   echo "${pkgbase#linux}" > localversion.20-pkgname
   local src
 
   echo "Setting config..."
-  make defconfig
+  cp ../config .config
+  make olddefconfig
   # patch necessary options
-        # patch_config LOCALVERSION_AUTO n #### not necessary with a release kernel
-
-        # enable WiFi
+  # enable WiFi
         patch_config CFG80211 m
+        patch_config TMPFS_POSIX_ACL y
 
         # There is no LAN, so let there be USB-LAN
         patch_config USB_NET_DRIVERS m
@@ -104,6 +105,34 @@ prepare() {
         patch_config USB_NET_AX8817X m
         patch_config USB_NET_AX88179_178A m
         patch_config USB_NET_CDCETHER m
+        patch_config DRM y
+        patch_config DRM_DW_HDMI y
+
+        patch_config DRM_SUN4I y
+        patch_config DRM_SUN4I_HDMI y
+        patch_config DRM_SUN6I_DSI y
+        patch_config DRM_SUN8I_DW_HDMI y
+        patch_config DRM_SUN8I_MIXER y
+        patch_config DRM_SUN8I_TCON_TOP y
+        patch_config DRM_PANEL y
+        patch_config DRM_PANEL_SITRONIX_ST7701S y
+        patch_config DRM_TI_DLPC3433 m
+        patch_config DRM_LOGICVC m
+        patch_config DRM_BUDDY m
+        patch_config FB_MODE_HELPERS y
+        patch_config FB_OPENCORES m
+        patch_config FB_S1D13XXX m
+        patch_config FB_SMSCUFX m
+        patch_config FB_UDL m
+        patch_config FB_IBM_GXT4500 m
+        patch_config FB_METRONOME m
+        patch_config FB_SIMPLE m
+        patch_config FB_SSD1307 m
+        patch_config FB_CMDLINE y
+        patch_config FB_UVESA m
+        patch_config VGA_CONSOLE y
+        patch_config FRAMEBUFFER_CONSOLE_ROTATION y
+        patch_config FRAMEBUFFER_CONSOLE_DEFERRED_TAKEOVER y
         patch_config BT y
         patch_config BT_HCIUART m
         patch_config USB_NET_CDC_EEM m
@@ -157,6 +186,7 @@ prepare() {
 
         # enable binfmt_misc
         patch_config BINFMT_MISC y
+
   make olddefconfig
 
   #diff -u ../config .config || :
@@ -167,12 +197,12 @@ prepare() {
 
 build() {
   cd $_srcname
-  make DTC_FLAGS="-@" all
+  make DTC_FLAGS="-@" -j "$(nproc)" all
   # make -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
   # make htmldocs
   # Build rtl8723ds driver
   cd ../rtl8723ds
-  make KSRC="../$_srcname" modules || true
+  make KSRC="../$_srcname" -j "$(nproc)" modules || true
 
 }
 
